@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { Link } from 'react-router-dom'
+import { setDoc, doc, serverTimestamp } from 'firebase/firestore'
 import { db } from './firebase'
 
 const EVENT = {
@@ -10,7 +11,7 @@ const EVENT = {
 }
 
 type FormState = { name: string; surname: string; email: string }
-type Status = 'idle' | 'submitting' | 'success' | 'error'
+type Status = 'idle' | 'submitting' | 'success' | 'error' | 'duplicate'
 
 export default function App() {
   const [form, setForm] = useState<FormState>({ name: '', surname: '', email: '' })
@@ -29,10 +30,13 @@ export default function App() {
     e.preventDefault()
     setStatus('submitting')
     try {
-      await addDoc(collection(db, 'registrations'), {
-        ...form,
-        registeredAt: serverTimestamp(),
-      })
+      const docRef = doc(db, 'registrations', form.email)
+      const existing = await import('firebase/firestore').then(({ getDoc }) => getDoc(docRef))
+      if (existing.exists()) {
+        setStatus('duplicate')
+        return
+      }
+      await setDoc(docRef, { ...form, registeredAt: serverTimestamp() })
       setStatus('success')
     } catch {
       setStatus('error')
@@ -46,6 +50,9 @@ export default function App() {
     >
       <div className="absolute inset-0 bg-black/65 backdrop-blur-sm" />
       <div className="relative w-full max-w-md bg-gray-900/80 rounded-2xl shadow-xl p-8">
+        <Link to="/admin" className="absolute top-4 right-4 text-gray-500 hover:text-amber-400 text-xs transition-colors">
+          Admin
+        </Link>
         <div className="logo-fade">
           <img
             src="/imagesLogo/logo_tf_bili.png"
@@ -76,6 +83,20 @@ export default function App() {
             <p className="text-2xl mb-2">🎉</p>
             <p className="text-white font-semibold">Uspješno si prijavljen/a!</p>
             <p className="text-gray-400 text-sm mt-1">Vidimo se na zabavi, {form.name}!</p>
+            <a
+              href={EVENT.mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 mt-3 text-amber-400 text-sm font-medium underline underline-offset-2 hover:text-amber-300 transition-colors"
+            >
+              📍 Klikni za lokaciju zabave
+            </a>
+          </div>
+        ) : status === 'duplicate' ? (
+          <div className="text-center py-8">
+            <p className="text-2xl mb-2">👋</p>
+            <p className="text-white font-semibold">Već si prijavljen/a!</p>
+            <p className="text-gray-400 text-sm mt-1">Tvoja prijava je već evidentirana, {form.name}.</p>
             <a
               href={EVENT.mapsUrl}
               target="_blank"
