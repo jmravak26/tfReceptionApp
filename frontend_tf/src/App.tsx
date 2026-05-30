@@ -78,6 +78,10 @@ export default function App() {
           </a>?
         </p>
 
+        <p className="text-gray-500 text-xs mb-6 italic text-center">
+          Molimo članove da se prijave najkasnije do petka, 5. lipnja 2026., kako bismo mogli planirati količinu hrane i pića.
+        </p>
+
         {status === 'success' ? (
           <div className="text-center py-8">
             <p className="text-2xl mb-2">🎉</p>
