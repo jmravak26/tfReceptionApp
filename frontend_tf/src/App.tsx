@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { db } from './firebase'
 
 const EVENT = {
   date: '6.6.2026',
@@ -8,7 +10,7 @@ const EVENT = {
 }
 
 type FormState = { name: string; surname: string; email: string }
-type Status = 'idle' | 'success'
+type Status = 'idle' | 'submitting' | 'success' | 'error'
 
 export default function App() {
   const [form, setForm] = useState<FormState>({ name: '', surname: '', email: '' })
@@ -23,10 +25,18 @@ export default function App() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // TODO: send to backend
-    setStatus('success')
+    setStatus('submitting')
+    try {
+      await addDoc(collection(db, 'registrations'), {
+        ...form,
+        registeredAt: serverTimestamp(),
+      })
+      setStatus('success')
+    } catch {
+      setStatus('error')
+    }
   }
 
   return (
@@ -75,10 +85,14 @@ export default function App() {
 
             <button
               type="submit"
-              className="mt-2 bg-amber-500 hover:bg-amber-400 text-gray-950 font-semibold py-2.5 rounded-lg transition-colors"
+              disabled={status === 'submitting'}
+              className="mt-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-gray-950 font-semibold py-2.5 rounded-lg transition-colors"
             >
-              Dolazim!
+              {status === 'submitting' ? 'Slanje...' : 'Dolazim!'}
             </button>
+            {status === 'error' && (
+              <p className="text-red-400 text-sm text-center">Greška pri prijavi. Pokušaj ponovo.</p>
+            )}
           </form>
         )}
       </div>
