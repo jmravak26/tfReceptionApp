@@ -76,6 +76,14 @@ export default function App() {
             <p className="text-2xl mb-2">🎉</p>
             <p className="text-white font-semibold">Uspješno si prijavljen/a!</p>
             <p className="text-gray-400 text-sm mt-1">Vidimo se na zabavi, {form.name}!</p>
+            <a
+              href={EVENT.mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 mt-3 text-amber-400 text-sm font-medium underline underline-offset-2 hover:text-amber-300 transition-colors"
+            >
+              📍 Klikni za lokaciju zabave
+            </a>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
