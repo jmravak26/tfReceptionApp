@@ -6,6 +6,8 @@ Web application for registering gym members for events and gatherings.
 
 [https://tfreceptionapp.web.app](https://tfreceptionapp.web.app)
 
+<!-- auto-deploy test -->
+
 ## Project Structure
 
 ```
