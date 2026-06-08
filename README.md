@@ -19,14 +19,22 @@ tfReceptionApp/
 - Event registration form (name, surname, email)
 - Event details display (date, time, location with Google Maps link)
 - Duplicate registration prevention (email used as unique document ID)
-- Registration deadline reminder message
+- Live signed-up count displayed to visitors
+- Registration deadline reminder message (configurable)
 - Croatian language UI
 - Responsive design with blurred background photo
 - Animated logo with click-to-spin interaction
+- Loading state while fetching event config (prevents false "no active events" flash)
+- Graceful "no active events" state when no event is configured
 
 ### Admin Panel (`/admin`)
-- Password protected
+- Password protected with `sessionStorage` persistence (survives page refresh, clears on tab close)
+- Configurable event settings: date picker, time picker, location, Google Maps URL, helper message
+- Live preview of what visitors will see, updates as you type
+- Reset event to "no active events" with a single button
 - Lists all registered members with registration timestamp
+- Delete individual registrations
+- Delete all registrations (requires checkbox confirmation)
 - Export all registrations to CSV
 
 ## 🛠️ Tech Stack
@@ -35,6 +43,39 @@ tfReceptionApp/
 - **Database**: Firebase Firestore
 - **Deployment**: Firebase Hosting
 - **CI/CD**: GitHub Actions (auto-deploy on push to `main`)
+
+## 🗄️ Firestore Structure
+
+```
+/registrations/{email}     # Registration documents (email as document ID)
+  - name
+  - surname
+  - email
+  - registeredAt
+
+/config/event              # Event configuration document
+  - date        (ISO format: YYYY-MM-DD)
+  - time        (HH:MM)
+  - location
+  - mapsUrl
+  - helperMessage
+```
+
+### Required Firestore Security Rules
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /registrations/{doc} {
+      allow read, write: if true;
+    }
+    match /config/{doc} {
+      allow read, write: if true;
+    }
+  }
+}
+```
 
 ## ⚡ Quick Start
 

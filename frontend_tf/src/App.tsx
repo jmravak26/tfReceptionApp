@@ -1,13 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { setDoc, doc, serverTimestamp } from 'firebase/firestore'
+import { setDoc, doc, serverTimestamp, getDoc, getCountFromServer, collection } from 'firebase/firestore'
 import { db } from './firebase'
 
-const EVENT = {
-  date: '6.6.2026',
-  time: '16:00',
-  location: 'Gala',
-  mapsUrl: 'https://maps.app.goo.gl/SywpdWw6fKERC8ej8',
+type EventConfig = {
+  date: string
+  time: string
+  location: string
+  mapsUrl: string
+  helperMessage: string
 }
 
 type FormState = { name: string; surname: string; email: string }
@@ -17,6 +18,20 @@ export default function App() {
   const [form, setForm] = useState<FormState>({ name: '', surname: '', email: '' })
   const [status, setStatus] = useState<Status>('idle')
   const [spinning, setSpinning] = useState(false)
+  const [event, setEvent] = useState<EventConfig | null>(null)
+  const [signedCount, setSignedCount] = useState<number | null>(null)
+  const [configLoading, setConfigLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([
+      getDoc(doc(db, 'config', 'event')),
+      getCountFromServer(collection(db, 'registrations')),
+    ]).then(([configSnap, countSnap]) => {
+      if (configSnap.exists()) setEvent(configSnap.data() as EventConfig)
+      setSignedCount(countSnap.data().count)
+      setConfigLoading(false)
+    })
+  }, [])
 
   const handleLogoClick = () => {
     if (spinning) return
@@ -37,11 +52,14 @@ export default function App() {
         return
       }
       await setDoc(docRef, { ...form, registeredAt: serverTimestamp() })
+      setSignedCount(prev => prev !== null ? prev + 1 : 1)
       setStatus('success')
     } catch {
       setStatus('error')
     }
   }
+
+  const hasEvent = Boolean(event?.date)
 
   return (
     <div
@@ -63,70 +81,89 @@ export default function App() {
           />
         </div>
 
-        <h1 className="text-2xl font-bold text-white mb-1 text-center">Prijava na domjenak</h1>
-        <p className="text-gray-400 text-sm mb-6">
-          Dolaziš li na domjenak{' '}
-          <span className="text-amber-400 font-medium">{EVENT.date}</span> u{' '}
-          <span className="text-amber-400 font-medium">{EVENT.time}</span> sati na lokaciji{' '}
-          <a
-            href={EVENT.mapsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-amber-400 font-medium underline underline-offset-2 hover:text-amber-300 transition-colors"
-          >
-            {EVENT.location}
-          </a>?
-        </p>
+        <h1 className="text-2xl font-bold text-white mb-1 text-center">Prijava na događaj</h1>
 
-        <p className="text-gray-500 text-xs mb-6 italic text-center">
-          Molimo članove da se prijave najkasnije do petka, 5. lipnja 2026., kako bismo mogli planirati količinu hrane i pića.
-        </p>
-
-        {status === 'success' ? (
-          <div className="text-center py-8">
-            <p className="text-2xl mb-2">🎉</p>
-            <p className="text-white font-semibold">Uspješno si prijavljen/a!</p>
-            <p className="text-gray-400 text-sm mt-1">Vidimo se na zabavi, {form.name}!</p>
-            <a
-              href={EVENT.mapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 mt-3 text-amber-400 text-sm font-medium underline underline-offset-2 hover:text-amber-300 transition-colors"
-            >
-              📍 Klikni za lokaciju zabave
-            </a>
-          </div>
-        ) : status === 'duplicate' ? (
-          <div className="text-center py-8">
-            <p className="text-2xl mb-2">👋</p>
-            <p className="text-white font-semibold">Već si prijavljen/a!</p>
-            <p className="text-gray-400 text-sm mt-1">Tvoja prijava je već evidentirana, {form.name}.</p>
-            <a
-              href={EVENT.mapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 mt-3 text-amber-400 text-sm font-medium underline underline-offset-2 hover:text-amber-300 transition-colors"
-            >
-              📍 Klikni za lokaciju zabave
-            </a>
-          </div>
+        {configLoading ? (
+          <p className="text-gray-500 text-sm mt-2 text-center animate-pulse">Učitavanje...</p>
+        ) : !hasEvent ? (
+          <p className="text-gray-400 text-sm mt-2 text-center">Trenutno nema aktivnih događaja.</p>
         ) : (
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <Field label="Ime" name="name" value={form.name} onChange={handleChange} />
-            <Field label="Prezime" name="surname" value={form.surname} onChange={handleChange} />
-            <Field label="Email" name="email" type="email" value={form.email} onChange={handleChange} />
-
-            <button
-              type="submit"
-              disabled={status === 'submitting'}
-              className="mt-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-gray-950 font-semibold py-2.5 rounded-lg transition-colors"
-            >
-              {status === 'submitting' ? 'Slanje...' : 'Dolazim!'}
-            </button>
-            {status === 'error' && (
-              <p className="text-red-400 text-sm text-center">Greška pri prijavi. Pokušaj ponovo.</p>
+          <>
+            <p className="text-gray-400 text-sm mb-6 sm:whitespace-nowrap whitespace-normal">
+              Dolaziš li na događaj{' '}
+              <span className="text-amber-400 font-medium">
+                {new Date(event!.date + 'T00:00:00').toLocaleDateString('hr', { day: 'numeric', month: 'numeric', year: 'numeric' })}
+              </span> u{' '}
+              <span className="text-amber-400 font-medium">{event!.time}</span> sati na lokaciji{' '}
+              <a
+                href={event!.mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-amber-400 font-medium underline underline-offset-2 hover:text-amber-300 transition-colors"
+              >
+                {event!.location}
+              </a>?
+            </p>
+            {signedCount !== null && (
+              <p className="text-gray-400 text-sm mb-4 text-center">
+                Do sada prijavljeno: <span className="text-amber-400 font-semibold">{signedCount}</span> {signedCount === 1 ? 'član' : signedCount >= 2 && signedCount <= 4 ? 'člana' : 'članova'}
+              </p>
             )}
-          </form>
+            {event!.helperMessage && (
+              <p className="text-gray-500 text-xs mb-6 italic text-center">{event!.helperMessage}</p>
+            )}
+
+            {status === 'success' ? (
+              <div className="text-center py-8">
+                <p className="text-2xl mb-2">🎉</p>
+                <p className="text-white font-semibold">Uspješno si prijavljen/a!</p>
+                <p className="text-gray-400 text-sm mt-1">Vidimo se, {form.name}!</p>
+                {event!.mapsUrl && (
+                  <a
+                    href={event!.mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 mt-3 text-amber-400 text-sm font-medium underline underline-offset-2 hover:text-amber-300 transition-colors"
+                  >
+                    📍 Klikni za lokaciju
+                  </a>
+                )}
+              </div>
+            ) : status === 'duplicate' ? (
+              <div className="text-center py-8">
+                <p className="text-2xl mb-2">👋</p>
+                <p className="text-white font-semibold">Već si prijavljen/a!</p>
+                <p className="text-gray-400 text-sm mt-1">Tvoja prijava je već evidentirana, {form.name}.</p>
+                {event!.mapsUrl && (
+                  <a
+                    href={event!.mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 mt-3 text-amber-400 text-sm font-medium underline underline-offset-2 hover:text-amber-300 transition-colors"
+                  >
+                    📍 Klikni za lokaciju
+                  </a>
+                )}
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                <Field label="Ime" name="name" value={form.name} onChange={handleChange} />
+                <Field label="Prezime" name="surname" value={form.surname} onChange={handleChange} />
+                <Field label="Email" name="email" type="email" value={form.email} onChange={handleChange} />
+
+                <button
+                  type="submit"
+                  disabled={status === 'submitting'}
+                  className="mt-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-gray-950 font-semibold py-2.5 rounded-lg transition-colors"
+                >
+                  {status === 'submitting' ? 'Slanje...' : 'Dolazim!'}
+                </button>
+                {status === 'error' && (
+                  <p className="text-red-400 text-sm text-center">Greška pri prijavi. Pokušaj ponovo.</p>
+                )}
+              </form>
+            )}
+          </>
         )}
       </div>
     </div>
